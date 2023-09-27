@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ThunderRoad;
 using UnityEngine;
 
@@ -107,6 +104,30 @@ namespace ExplosionSpell
             }
             foreach (Collider collider in sphereContacts)
             {
+                Breakable breakable = collider.attachedRigidbody?.GetComponentInParent<Breakable>(); 
+                if (breakable != null)
+                {
+                    if (!breakable.IsBroken && breakable.canInstantaneouslyBreak)
+                        breakable.Break();
+                    for (int index = 0; index < breakable.subBrokenItems.Count; ++index)
+                    {
+                        Rigidbody rigidBody = breakable.subBrokenItems[index].physicBody.rigidBody;
+                        if (rigidBody && !rigidbodiesPushed.Contains(rigidBody))
+                        {
+                            rigidBody.AddExplosionForce(explosionForce, position, explosionRadius, 0f, ForceMode.VelocityChange);
+                            rigidbodiesPushed.Add(rigidBody);
+                        }
+                    }
+                    for (int index = 0; index < breakable.subBrokenBodies.Count; ++index)
+                    {
+                        PhysicBody subBrokenBody = breakable.subBrokenBodies[index];
+                        if (subBrokenBody && !rigidbodiesPushed.Contains(subBrokenBody.rigidBody))
+                        {
+                            subBrokenBody.rigidBody.AddExplosionForce(explosionForce, position, explosionRadius, 0f, ForceMode.VelocityChange);
+                            rigidbodiesPushed.Add(subBrokenBody.rigidBody);
+                        }
+                    }
+                }
                 if (collider.attachedRigidbody != null && !collider.attachedRigidbody.isKinematic && Vector3.Distance(position, collider.transform.position) is float distance && distance <= explosionRadius)
                 {
                     if (collider.attachedRigidbody.gameObject.layer != GameManager.GetLayer(LayerName.NPC) && !rigidbodiesPushed.Contains(collider.attachedRigidbody))
@@ -143,7 +164,7 @@ namespace ExplosionSpell
         {
             creature = GetComponent<Creature>();
             creature.OnDespawnEvent += Creature_OnDespawnEvent;
-            instance = Catalog.GetData<EffectData>(burnEffectId).Spawn(creature.ragdoll.rootPart.transform, true);
+            instance = Catalog.GetData<EffectData>(burnEffectId).Spawn(creature.ragdoll.rootPart.transform, null, true);
             instance.SetRenderer(creature.GetRendererForVFX(), false);
             instance.SetIntensity(1f);
             instance.Play();
